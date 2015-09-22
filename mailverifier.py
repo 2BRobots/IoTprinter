@@ -131,7 +131,7 @@ def ticket_summary (body2):
 
 # Called when button is briefly tapped.  Invokes time/temperature script.
 def tap():
-   loop()
+  loop()
   return
 
 # Called when button is held down.  Prints image, invokes shutdown process.
