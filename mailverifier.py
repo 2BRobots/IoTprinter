@@ -252,7 +252,7 @@ def loop():
                if DEBUG:
                   print (body2)
                #ticket_summary(body2)
-               printer.print(body2) 
+               printer.println(body2) 
                if printer.hasPaper() == True:
                   server.add_flags(elements, '\\Seen')  
                else:
