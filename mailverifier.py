@@ -13,7 +13,7 @@
 #https://github.com/adafruit/Python-Thermal-Printer
 #https://learn.adafruit.com/raspberry-pi-e-mail-notifier-using-leds/overview
 
- 
+#Not all of these are neccesary, but maybe helpful.  
 from imapclient import IMAPClient
 import time
 import RPi.GPIO as GPIO
@@ -25,6 +25,7 @@ import quopri
 import string
 import re
 
+#This section is used to define what is going to be delated or changed, feel free to modify it.
 cadena1 = '<td style="padding:0.6em 0.4em;">' 
 cadena2 = "<br />"
 cadena3 = "</td>"
@@ -56,10 +57,11 @@ cadena28 = '<span style"color:; font-weight:bold;">'
 cadena29 = 'e :'
 cadena30 = '<span style"color:; font-weight:bold; '
 
+# This function deletes or changes the parts of the email that we dont want. Uses the strings above. 
 def decode_email(msg_str):
-    body = quopri.decodestring(msg_str)
-    body = body[187:]
-    body = body[:-131]
+    body = quopri.decodestring(msg_str) #decodes
+    body = body[187:] #start from character number...
+    body = body[:-131] #end in character number...
     body = string.replace(body,cadena1, '')
     body = string.replace(body,cadena2, ' ')
     body = string.replace(body,cadena3, ' ')
@@ -85,25 +87,26 @@ def decode_email(msg_str):
     body = string.replace(body,cadena23, '$')
     body = string.replace(body,cadena24, ' ')
     body = string.replace(body,cadena25, ' ')
-    body = re.sub('\s{2,}', ' ', body)
+    body = re.sub('\s{2,}', ' ', body) #deletes double or more white spaces and left it as one space.
     body = string.replace(body,cadena26, '.')
     body = string.replace(body,cadena27, '')
     body = string.replace(body,cadena28, '')
     body = string.replace(body,cadena29, 'e:')
     body = string.replace(body,cadena30, ' ')
-    body = re.sub('\s{2,}', ' ', body)
-    body = unicode(str(body), 'utf-8')
+    body = re.sub('\s{2,}', ' ', body) #deletes double or more white spaces and left it as one space.
+    body = unicode(str(body), 'utf-8') #character decodification
     msg = body
     decoded_message = msg
     return decoded_message
 
+#This function generates and prints our ticket based in the received info. (not used in the instructables example, but feel free to modify it) 
 def ticket_summary (body2):
-    pos = body2.find('PEDIDO: ')
-    ordernum = body2[pos + 8:pos +17]
-    pos1 = body2.find('TOTAL PAGADO ')
+    pos = body2.find('PEDIDO: ') #search for a keyword
+    ordernum = body2[pos + 8:pos +17] #and extracts the info next to it. Of course we know what we are searching for ;)
+    pos1 = body2.find('TOTAL PAGADO ') 
     pos2 = body2.find('.', pos1)
     ordertotal = body2[pos1:pos2 + 3]
-    printer.justify('L')
+    printer.justify('L') #now the ticket is being printed
     printer.println("--------------------------------")
     printer.feed(2)
     printer.printImage(Image.open('dafr webpage mono.bmp'),True)
@@ -131,14 +134,14 @@ def ticket_summary (body2):
 
 # Called when button is briefly tapped.  Invokes time/temperature script.
 def tap():
-  loop()
+  loop() #checks our inbox
   return
 
 # Called when button is held down.  Prints image, invokes shutdown process.
 def hold():
   subprocess.call("sync")
-  subprocess.call(["shutdown", "-h", "now"])
-  strip.setPixelColorRGB(0,0,0,0)
+  subprocess.call(["shutdown", "-h", "now"]) #shutdowns the raspberry pi
+  strip.setPixelColorRGB(0,0,0,0) #turn off the neopixel
   strip.show()
   printer.sleep()
   return
@@ -162,19 +165,20 @@ strip.begin()
 printer = Adafruit_Thermal("/dev/ttyAMA0", 19200, timeout=5)
 
 #Program start here:
-strip.setPixelColorRGB(0,0,255,0)
+strip.setPixelColorRGB(0,0,255,0) #booting script state, green color is showed in the neopixel.
 strip.show()
 
  
-DEBUG = False
- 
+DEBUG = True  #Change it to False when you are done debugging
+
+# Here you can enter your email login details. 
 HOSTNAME = 'imap.gmail.com'
 USERNAME = 'youraccount@gmail.com'
 PASSWORD = 'accountpassword'
-MAILBOX = 'Secret Messages'
+MAILBOX = 'Secret messages'
  
-NEWMAIL_OFFSET = 0   # my unread messages never goes to zero, yours might
-MAIL_CHECK_FREQ = 60 # check mail every 60 seconds
+NEWMAIL_OFFSET = 0   # only executes printing after the emails reach the minimun for processing.
+MAIL_CHECK_FREQ = 60 # check mail every 60 seconds, you can change it.
  
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
@@ -234,7 +238,7 @@ def loop():
 
     
     if newmails > NEWMAIL_OFFSET:
-        strip.setPixelColorRGB(0,0,0,255)
+        strip.setPixelColorRGB(0,0,0,255) #turn blue our neopixel if we have something to print
         strip.show()
 
 
@@ -243,57 +247,52 @@ def loop():
         printer.feed(1)
 
         for elements in mail_array:
-            if printer.hasPaper() == True:
-               body = server.fetch(elements,['BODY.PEEK[1.1]'])
+            if printer.hasPaper() == True: #verify is printer has paper before printing.
+               body = server.fetch(elements,['BODY.PEEK[1]']) #IMPORTANT you might have problems with these, try using "1", "1.1", "1.2" or "2". 
                if DEBUG:
-                  print(body)
+                  print(body) #prints in console original text.
                   print(' ')
-               body2 = decode_email(str(body)) 
+               body2 = decode_email(str(body)) #process the received text.
                if DEBUG:
-                  print (body2)
-               #ticket_summary(body2)
-               printer.println(body2) 
-               if printer.hasPaper() == True:
-                  server.add_flags(elements, '\\Seen')  
+                  print (body2) #prints in console processed text.
+               #ticket_summary(body2) #call the ticket printing routine
+               printer.println(body) #prints in paper the original text of the email. Change to "body2" for printing the processed version.
+               if printer.hasPaper() == True: #verify is printer has paper after printing.
+                  server.add_flags(elements, '\\Seen')  #mark as read if printed sucesfully.
                else:
-                  strip.setPixelColorRGB(0,255,255,0)
+                  strip.setPixelColorRGB(0,255,255,0) #show yellow neopixel if there is no paper in the printer.
                   strip.show()
                   if DEBUG:
-                     print 'No hay papel en la impresora, no se completo la impresion.'
+                     print 'There is no paper in the printer.'
                if DEBUG:
                   print(' ')
                   time.sleep(12)
             else:
-              strip.setPixelColorRGB(0,255,255,0)
+              strip.setPixelColorRGB(0,255,255,0) #show yellow neopixel if there is no paper in the printer.
               strip.show()
               if DEBUG:
-                 print 'No hay papel en la impresora'
+                 print 'There is no paper in the printer.'
         printer.sleep() 
         
     else:
-       # GPIO.output(GREEN_LED, False)
-       # GPIO.output(RED_LED, True)
-
-        strip.setPixelColorRGB(0,255,0,0)
+        strip.setPixelColorRGB(0,255,0,0) #show red neopixel if there are no emails for printing.
         strip.show()
         
   except:
-    strip.setPixelColorRGB(0,255,0,255)
+    strip.setPixelColorRGB(0,255,0,255) #show purple neopixel if an error occurs reading the email.
     strip.show()
     if DEBUG:
-        print 'No se puedo realizar el chequeo, revise la conexion a internet.'
+        print 'Cant check email or an error has ocurred. Verify your internet conection or this script parameters'
  
     
  
 if __name__ == '__main__':
     try:
         if DEBUG:
-            print 'Presiona ctrl + c para salir.'
+            print 'Press ctrl + c to quit'
         printer.wake()
-        #printer.println("Inicializando programa")
-        #printer.feed(3)
         printer.sleep()
-        strip.setPixelColorRGB(0,255,255,255)
+        strip.setPixelColorRGB(0,255,255,255) #show white neopixel while starting up. 
         strip.show()
         time.sleep(5)
         loop()
@@ -331,8 +330,8 @@ if __name__ == '__main__':
               counter = counter + 1
                
     finally:
-        GPIO.cleanup()
-        strip.setPixelColorRGB(0,0,0,0)
+        GPIO.cleanup() #reset the gpio pins functions.
+        strip.setPixelColorRGB(0,0,0,0) #turn off neopixel at exit of this script. (shutting down or ctrl + c)
         strip.show()
         printer.sleep()
 
