@@ -123,12 +123,13 @@ def tap():
 
 # Called when button is held down.  Prints image, invokes shutdown process.
 def hold():
-  subprocess.call("sync")
-  subprocess.call(["shutdown", "-h", "now"]) #shutdowns the raspberry pi
   strip.setPixelColorRGB(0,0,0,0) #turn off the neopixel
   strip.show()
   printer.sleep()
+  time.sleep(2)
   GPIO.cleanup()
+  subprocess.call("sync")
+  subprocess.call(["shutdown", "-h", "now"]) #shutdowns the raspberry pi
   while True:
       time.sleep(1)
   return
