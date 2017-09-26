@@ -115,6 +115,9 @@ def ticket_summary (body2):
 
 # Called when button is briefly tapped.  Invokes time/temperature script.
 def tap():
+  strip.setPixelColorRGB(0,255,255,255) #show white neopixel while for button press. 
+  strip.show()
+  time.sleep(2)
   loop() #checks our inbox
   return
 
