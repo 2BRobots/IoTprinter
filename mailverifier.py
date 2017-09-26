@@ -13,90 +13,53 @@
 #https://github.com/adafruit/Python-Thermal-Printer
 #https://learn.adafruit.com/raspberry-pi-e-mail-notifier-using-leds/overview
 
-#Not all of these are neccesary, but maybe helpful.  
-from imapclient import IMAPClient
-import time
-import RPi.GPIO as GPIO
+#Not all of these are neccesary, but maybe helpful.
 from Adafruit_Thermal import *
 from neopixel import *
-import Image
+import RPi.GPIO as GPIO
+from imapclient import IMAPClient
+import gfx.logo2b as logo2b
+import time
 import subprocess
 import quopri
 import string
 import re
+import sys
+from colors import *
 
-#This section is used to define what is going to be delated or changed, feel free to modify it.
-cadena1 = '<td style="padding:0.6em 0.4em;">' 
-cadena2 = "<br />"
-cadena3 = "</td>"
-cadena4 = "="
-cadena5 = '<strong><a href"http://dafrelectronics.com/tienda/'
-cadena6 = "</a>"
-cadena7 = "</strong>"
-cadena8 = '<td style"padding:0.6em 0.4em; text-align:right;">'
-cadena9 = '<td style"padding:0.6em 0.4em; text-align:right;">'
-cadena10 = '<td style"padding:0.6em 0.4em; text-align:center;">'
-cadena11 = '<td style"padding:0.6em 0.4em; text-align:right;">'
-cadena12 = "</tr>"
-cadena13 = '\\t'
-cadena14 = '\\r'
-cadena15 = '\\n'
-cadena16 = 'PRODUCTO  PRECIO UNITARIO  CANTIDAD  PRECIO TOTAL'
-cadena17 = '<span style"color:; font-weight:bold;'
-cadena18 = '</span>'
-cadena19 = '<tr style"background-color:'
-cadena20 = 'EBECEE;">'
-cadena21 = '<br />'
-cadena22 = '">' #'html">'
-cadena23 = '$ '
-cadena24 = '<br  />'
-cadena25 = '<span  style"color:; font-weight:bold;">'
-cadena26 = '. '
-cadena27 = 'DDE2E6;">'
-cadena28 = '<span style"color:; font-weight:bold;">'
-cadena29 = 'e :'
-cadena30 = '<span style"color:; font-weight:bold; '
+# LED strip configuration:
+LED_COUNT      = 1      # Number of LED pixels.
+LED_PIN        = 18      # GPIO pin connected to the pixels (18 uses PWM!).
+#LED_PIN        = 10      # GPIO pin connected to the pixels (10 uses SPI /dev/spidev0.0).
+LED_FREQ_HZ    = 800000  # LED signal frequency in hertz (usually 800khz)
+LED_DMA        = 5       # DMA channel to use for generating signal (try 5)
+LED_BRIGHTNESS = 255     # Set to 0 for darkest and 255 for brightest
+LED_INVERT     = False   # True to invert the signal (when using NPN transistor level shift)
+LED_CHANNEL    = 0       # set to '1' for GPIOs 13, 19, 41, 45 or 53
+LED_STRIP      = ws.WS2811_STRIP_GRB   # Strip type and colour ordering
+
+# Create NeoPixel object with appropriate configuration.
+strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL, LED_STRIP)
+
+#Create thermal printer object and load default configuration.
+printer = Adafruit_Thermal("/dev/serial0", 19200, timeout=5)
 
 # This function deletes or changes the parts of the email that we dont want. Uses the strings above. 
 def decode_email(msg_str):
     body = quopri.decodestring(msg_str) #decodes
-    body = body[187:] #start from character number...
-    body = body[:-131] #end in character number...
-    body = string.replace(body,cadena1, '')
-    body = string.replace(body,cadena2, ' ')
-    body = string.replace(body,cadena3, ' ')
-    body = string.replace(body,cadena4, '')
-    body = string.replace(body,cadena5, ' ')
-    body = string.replace(body,cadena6, ' ')
-    body = string.replace(body,cadena7, ' ')
-    body = string.replace(body,cadena8, '')
-    body = string.replace(body,cadena9, '')
-    body = string.replace(body,cadena10, ' ')
-    body = string.replace(body,cadena11, '')
-    body = string.replace(body,cadena12, '')
-    body = string.replace(body,cadena13, '')
-    body = string.replace(body,cadena14, '')
-    body = string.replace(body,cadena15, ' ')
-    body = string.replace(body,cadena16, '')
-    body = string.replace(body,cadena17, ' ')
-    body = string.replace(body,cadena18, ' ')
-    body = string.replace(body,cadena19, '')
-    body = string.replace(body,cadena20, ' ')
-    body = string.replace(body,cadena21, ' ')
-    body = string.replace(body,cadena22, ' ')
-    body = string.replace(body,cadena23, '$')
-    body = string.replace(body,cadena24, ' ')
-    body = string.replace(body,cadena25, ' ')
-    body = re.sub('\s{2,}', ' ', body) #deletes double or more white spaces and left it as one space.
-    body = string.replace(body,cadena26, '.')
-    body = string.replace(body,cadena27, '')
-    body = string.replace(body,cadena28, '')
-    body = string.replace(body,cadena29, 'e:')
-    body = string.replace(body,cadena30, ' ')
+    body = body[body.find("Felicitaciones!"):] #start message to process from here...
+    body = body[:body.rfind("Content-Type: multipart/related;")] #end message to process from here...
+    cleanr = re.compile('<.*?>')
+    body = re.sub(cleanr, '', body)
+    body = string.replace(body,'\\n', ' ')
+    body = string.replace(body,'\\r', ' ')
+    body = string.replace(body,'=', ' ')
+    body.lstrip()
+    body.rstrip()
+    body = body[:body.rfind("--_")] #a litle bit of timming
     body = re.sub('\s{2,}', ' ', body) #deletes double or more white spaces and left it as one space.
     body = unicode(str(body), 'utf-8') #character decodification
-    msg = body
-    decoded_message = msg
+    decoded_message = body
     return decoded_message
 
 #This function generates and prints our ticket based in the received info. (not used in the instructables example, but feel free to modify it) 
@@ -106,27 +69,45 @@ def ticket_summary (body2):
     pos1 = body2.find('TOTAL PAGADO ') 
     pos2 = body2.find('.', pos1)
     ordertotal = body2[pos1:pos2 + 3]
-    printer.justify('L') #now the ticket is being printed
+    ordernum.lstrip()
+    ordernum.rstrip()
+    ordernum.replace(" ", "")
+    if DEBUG:
+        print(' ')
+        sys.stdout.write(BLUE)
+        print('Numero de pedido: %s' %ordernum)
+        print(ordertotal) 
+        sys.stdout.write(RESET)
+    printer.wake()
+    printer.setDefault()
+    printer.justify('C') #now the ticket is being printed
     printer.println("--------------------------------")
-    printer.feed(2)
-    printer.printImage(Image.open('dafr webpage mono.bmp'),True)
-    printer.println("Todo el material pra tu proyecto")
+    printer.feed(1)
+    printer.printBitmap(logo2b.width, logo2b.height, logo2b.data)
+    printer.feed(1)
+    printer.inverseOn()
+    printer.println("  Ticket de pedido web  ")
+    printer.inverseOff()
     printer.feed(1)
     printer.println("================================")
-    #printer.println("  ID  CANTIDAD  PRECIO  SUBTOTAL")
+    printer.justify('L')
     printer.println("Consulta el detalle de tu pedido")
     printer.println("ingresando a tu cuenta en linea.")
     printer.println("Obten tu nota en formato PDF.   ")
     printer.println("================================")
-    #printer.println("              DESCUENTO:  $20.00")
-    #printer.println("--------------------------------")
-    printer.println(ordertotal)
+    printer.justify('R')
+    printer.underlineOn()
+    printer.println(str(ordertotal))
+    printer.underlineOff()
     printer.feed(1)
+    printer.justify('L')
     printer.println("Numero de pedido: ")
-    printer.printBarcode(ordernum,printer.CODE93)
+    printer.printBarcode(str(ordernum),printer.CODE93)
     printer.justify('C')
+    printer.boldOn()
     printer.println("GRACIAS POR TU COMPRA!")
-    printer.println("www.dafrelectronics.com")
+    printer.boldOff()
+    printer.println("www.2brobots.com")
     printer.feed(1)
     printer.println("------ REV:2A07012015DAFR ------")
     printer.feed(3)
@@ -144,38 +125,24 @@ def hold():
   strip.setPixelColorRGB(0,0,0,0) #turn off the neopixel
   strip.show()
   printer.sleep()
+  GPIO.cleanup()
+  while True:
+      time.sleep(1)
   return
 
-
-# LED strip configuration:
-LED_COUNT      = 1       # Number of LED pixels.
-LED_PIN        = 18      # GPIO pin connected to the pixels (must support PWM!).
-LED_FREQ_HZ    = 800000  # LED signal frequency in hertz (usually 800khz)
-LED_DMA        = 5       # DMA channel to use for generating signal (try 5)
-LED_BRIGHTNESS = 255     # Set to 0 for darkest and 255 for brightest
-LED_INVERT     = False   # True to invert the signal (when using NPN transistor level shift)
-
-
-# Create NeoPixel object with appropriate configuration.
-strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT)
-# Intialize the library (must be called once before other functions).
-strip.begin()
-
-#Create thermal printer object and load default configuration.
-printer = Adafruit_Thermal("/dev/ttyAMA0", 19200, timeout=5)
-
 #Program start here:
+strip.begin()
 strip.setPixelColorRGB(0,0,255,0) #booting script state, green color is showed in the neopixel.
 strip.show()
 
  
-DEBUG = True  #Change it to False when you are done debugging
+DEBUG = False  #Change it to False when you are done debugging
 
 # Here you can enter your email login details. 
 HOSTNAME = 'imap.gmail.com'
-USERNAME = 'youraccount@gmail.com'
-PASSWORD = 'accountpassword'
-MAILBOX = 'Secret messages'
+USERNAME = 'yourmail@gmail.com'
+PASSWORD = 'Password'
+MAILBOX = 'MAILBOX'
  
 NEWMAIL_OFFSET = 0   # only executes printing after the emails reach the minimun for processing.
 MAIL_CHECK_FREQ = 60 # check mail every 60 seconds, you can change it.
@@ -208,7 +175,7 @@ def loop():
 
     if DEBUG:
         print('Logging in as ' + USERNAME)
-        print('%d messages in "Secret messages"' % select_info['EXISTS'])
+        print('%d messages in "Pedidos DAFR"' % select_info['EXISTS'])
  
     folder_status = server.folder_status(MAILBOX, 'UNSEEN')
     newmails = int(folder_status['UNSEEN'])
@@ -230,17 +197,11 @@ def loop():
         if DEBUG:
             print('   ID %d: %d bytes, flags=%s' % (msgid, data[b'RFC822.SIZE'], data[b'FLAGS']))    
         mail_array.append(msgid)
-    
-    if DEBUG:
-       for elements  in mail_array:
-           print(elements)
        
-
     
     if newmails > NEWMAIL_OFFSET:
         strip.setPixelColorRGB(0,0,0,255) #turn blue our neopixel if we have something to print
         strip.show()
-
 
         printer.wake()    
         time.sleep(5)
@@ -248,15 +209,17 @@ def loop():
 
         for elements in mail_array:
             if printer.hasPaper() == True: #verify is printer has paper before printing.
-               body = server.fetch(elements,['BODY.PEEK[1]']) #IMPORTANT you might have problems with these, try using "1", "1.1", "1.2" or "2". 
+               body = server.fetch(elements,['BODY.PEEK[TEXT]']) #IMPORTANT you might have problems with these, try using "TEXT", "1", "1.1", "1.2" or "2". 
+               body2 = decode_email(str(body))
                if DEBUG:
+                  sys.stdout.write(RED)
                   print(body) #prints in console original text.
                   print(' ')
-               body2 = decode_email(str(body)) #process the received text.
-               if DEBUG:
-                  print (body2) #prints in console processed text.
-               #ticket_summary(body2) #call the ticket printing routine
-               printer.println(body) #prints in paper the original text of the email. Change to "body2" for printing the processed version.
+                  sys.stdout.write(GREEN)
+                  print(body2) #prints in console procesed text.
+                  sys.stdout.write(RESET)
+               ticket_summary(body2) #call the ticket printing routine
+               time.sleep(5)
                if printer.hasPaper() == True: #verify is printer has paper after printing.
                   server.add_flags(elements, '\\Seen')  #mark as read if printed sucesfully.
                else:
@@ -266,7 +229,7 @@ def loop():
                      print 'There is no paper in the printer.'
                if DEBUG:
                   print(' ')
-                  time.sleep(12)
+                  time.sleep(5)
             else:
               strip.setPixelColorRGB(0,255,255,0) #show yellow neopixel if there is no paper in the printer.
               strip.show()
@@ -334,6 +297,3 @@ if __name__ == '__main__':
         strip.setPixelColorRGB(0,0,0,0) #turn off neopixel at exit of this script. (shutting down or ctrl + c)
         strip.show()
         printer.sleep()
-
-
-
