@@ -58,7 +58,7 @@ class Adafruit_Thermal(Serial):
 		# If both passed, use those values.
 		baudrate = 19200
 		if len(args) == 0:
-			args = [ "/dev/ttyAMA0", baudrate ]
+			args = [ "/dev/serial0", baudrate ]
 		elif len(args) == 1:
 			args = [ args[0], baudrate ]
 		else:
@@ -319,10 +319,10 @@ class Adafruit_Thermal(Serial):
 		self.writePrintMode()
 
 	def inverseOn(self):
-		self.setPrintMode(self.INVERSE_MASK)
+		self.writeBytes(29, 66, 1)
 
 	def inverseOff(self):
-		self.unsetPrintMode(self.INVERSE_MASK)
+		self.writeBytes(29, 66, 0)
 
 	def upsideDownOn(self):
 		self.setPrintMode(self.UPDOWN_MASK)
@@ -409,11 +409,12 @@ class Adafruit_Thermal(Serial):
 	# 1 - normal underline
 	# 2 - thick underline
 	def underlineOn(self, weight=1):
+		if weight > 2: weight = 2
 		self.writeBytes(27, 45, weight)
 
 
 	def underlineOff(self):
-		self.underlineOn(0)
+		self.writeBytes(27, 45, 0)
 
 
 	def printBitmap(self, w, h, bitmap, LaaT=False):

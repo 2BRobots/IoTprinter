@@ -2,12 +2,7 @@
 
 from Adafruit_Thermal import *
 
-printer = Adafruit_Thermal("/dev/ttyAMA0", 19200, timeout=5)
-
-if printer.hasPaper() == True:
-     print"There is paper in the printer"
-else:
-     print "There is no paper in the printer"
+printer = Adafruit_Thermal("/dev/serial0", 19200, timeout=5)
 
 # Test inverse on & off
 printer.inverseOn()
@@ -66,10 +61,8 @@ printer.printBitmap(adalogo.width, adalogo.height, adalogo.data)
 import gfx.adaqrcode as adaqrcode
 printer.printBitmap(adaqrcode.width, adaqrcode.height, adaqrcode.data)
 printer.println("Adafruit!")
-printer.feed(1)
+printer.feed(2)
 
 printer.sleep()      # Tell printer to sleep
 printer.wake()       # Call wake() before printing again, even if reset
 printer.setDefault() # Restore printer to defaults
-
-
